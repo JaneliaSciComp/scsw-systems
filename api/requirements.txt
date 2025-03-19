@@ -1,0 +1,8 @@
+atlassian-python-api
+bs4
+dask[distributed]
+Flask==3.0.3
+Flask-Cors
+flask-swagger
+pyOpenSSL
+gunicorn==22.0.0

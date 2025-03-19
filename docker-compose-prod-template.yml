@@ -1,0 +1,34 @@
+services:
+  nginx:
+    image: nginx:1.15-alpine
+    ports:
+      - 80:80
+      - 443:443
+    restart: unless-stopped
+    depends_on:
+      - app
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf
+      - static_volume:/api/static
+      - /etc/nginx/ssl/:/etc/nginx/ssl/
+    networks:
+      - scsw-sys-net
+  app:
+    build: ./api
+    restart: unless-stopped
+    volumes:
+        - ./api:/api
+        - static_volume:/api/static
+    environment:
+      - PYTHONUNBUFFERED=1
+      - CONFIG_SERVER_URL=https://config.int.janelia.org/
+      - CONFLUENCE_API_TOKEN=
+    networks:
+        - scsw-sys-net
+
+networks:
+  scsw-sys-net:
+      driver: bridge
+
+volumes:
+  static_volume:

@@ -1,0 +1,371 @@
+div.abstract {height: 100px;
+              width: 90%;
+              overflow-y: scroll;
+              font: 13pt Times;
+              border: 1px solid #666;
+              padding: 8px;
+}
+
+.citation {
+  font: 13pt Times;
+}
+
+.paperdata {
+  font-size: 14pt;
+  color: #f5fffa;
+}
+.titlestat {
+  text-align: center;
+  font: 28pt Arial,sans-serif;
+  font-weight: bold;
+  color: white;
+  background-color: black;
+}
+.yearstat {
+  font: 18pt Tahoma,sans-serif;
+  color: black;
+  background-color: #89c242;
+}
+table.proplist {
+  border-collapse: collapse;
+  font-size: 12pt;
+  line-height: 14px;
+}
+
+.proplist td {
+  text-align: left;
+  padding: 5px;
+  vertical-align: top;
+  line-height: 1.2;
+  background: #334 !important;
+  color: #bbc !important;
+  border: 1px solid #058d95;
+}
+
+table.standard {
+  border-collapse: collapse;
+  font-size: 12pt;
+  line-height: 14px;
+}
+
+.standard th {
+  background: #058d95;
+  border: 1px solid #058d95;
+}
+
+.standard td {
+  text-align: left;
+  background: #334 !important;
+  color: #bbc !important;
+  border: 1px solid #058d95;
+}
+
+table.numbers {
+  border-collapse: collapse;
+  font-size: 12pt;
+  line-height: 14px;
+}
+
+.numbers th {
+  background: #058d95;
+  border: 1px solid #058d95;
+}
+
+.numbers td:first-child {
+    text-align: left;
+}
+
+.numbers td {
+  text-align: center;
+  background: #334 !important;
+  color: #bbc !important;
+  border: 1px solid #058d95;
+}
+
+table.numberlast {
+  border-collapse: collapse;
+  font-size: 12pt;
+  line-height: 14px;
+}
+
+.numberlast th {
+  background: #058d95;
+  border: 1px solid #058d95;
+}
+
+.numberlast td:last-child {
+    text-align: center;
+}
+
+.numberlast td {
+  text-align: left;
+  background: #334 !important;
+  color: #bbc !important;
+  border: 1px solid #058d95;
+}
+
+table.numbercenter {
+  border-collapse: collapse;
+  font-size: 12pt;
+  line-height: 14px;
+}
+
+.numbercenter th {
+  background: #058d95;
+  border: 1px solid #058d95;
+}
+
+.numbercenter td:first-child {
+    text-align: left;
+}
+
+.numbercenter td:last-child {
+    text-align: left;
+}
+
+.numbercenter td {
+  text-align: center;
+  background: #334 !important;
+  color: #bbc !important;
+  border: 1px solid #058d95;
+}
+
+table.borderless {
+  font-size: 12pt;
+  line-height: 16px;
+}
+
+.borderless td {
+  padding-right: 10px;
+  text-align: left;
+  white-space: nowrap;
+  color: #bbc !important;
+}
+
+table.standardc {
+  border-collapse: collapse;
+  font-size: 12pt;
+  line-height: 14px;
+}
+
+.standardc th {white-space: nowrap;
+  background: #058d95;
+  border: 1px solid #058d95;
+}
+
+.standardc td {
+  text-align: center;
+  background: #334 !important;
+  color: #bbc !important;
+  border: 1px solid #058d95;
+}
+
+table.property {
+  font-size: 12pt;
+  line-height: 16px;
+  background: #bbc !important;
+  color: #334 !important;
+}
+
+.property td {white-space: nowrap;
+  text-align: left;
+  padding-right: 10px;
+}
+
+.flexcontainer {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+}
+
+.flexitem {
+  flex: 1;
+  min-width: 150px;
+  max-width: 280px;
+}
+
+.flexitemauto {
+  flex: 0 0 auto;
+  width: auto;
+}
+
+.flexrow {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  width: 100%;
+}
+
+.flexcolumn {
+  display: flex;
+  flex-direction: column;
+  flex-basis: 100%;
+  flex: 1;
+}
+
+h1.dark, h2.dark, h3.dark, h4.dark, h5.dark, h6.dark {
+  color: #66c;
+}
+
+div.scroll {height: 200px;
+            width: 90%;
+            overflow: scroll;
+            border: 1px solid #666;
+            padding: 8px;
+}
+
+div.codescroll {height: 180px;
+                width: 90%;
+                overflow: scroll;
+                border: 1px solid #666;
+                font: 14px monospace;
+                color: aqua;
+                padding: 8px;
+}
+
+div.rounded {border: 1px solid gray;
+             padding: 5px;
+             margin: 4px;
+             color: black;
+             border-radius: 20px;
+}
+
+/* Bootstrap */
+hr {border-color: #666;
+    border-style: solid;
+}
+
+.btn-tiny {
+    padding: 2px 2px;
+    font-size: 11px;
+    border-radius: 5px;
+}
+
+.badge-urgent {
+   color: black;
+   background-color: darkorange;
+}
+.badge-alumni {
+   color: black;
+   background-color: orangered;
+}
+.badge-asserted {
+   color: #0f0;
+   background-color: #454;
+}
+.badge-author {
+   color: white;
+   background-color: #00a450;
+   border: 1px solid gold;
+}
+.badge-contingent {
+   color: black;
+   background-color: orange;
+}
+.badge-database {
+   color: black;
+   background-color: #89c242;
+}
+.badge-lab {
+   color: white;
+   background-color: #8b008b;
+}
+.badge-managed {
+   color: #ddd;
+   background-color: mediumpurple;
+}
+.badge-name {
+  color: #ffd700;
+  background-image0: linear-gradient(-45deg,#e3ebb9 25%,#f5baa6 0,#f5baa6 50%,#e3ebb9 0,#e3ebb9 75%,#f5baa6 0,#f5baa6);
+  background-image: linear-gradient(-45deg,#444 25%,#633 0,#633 50%,#444 0, #444 75%,#633 0,#633);
+  background-size: 30px 30px;
+}
+.badge-noorcid {
+   color: black;
+   background-color: coral;
+}
+.badge-orcid {
+   color: #0f0;
+   background-color: #454;
+}
+
+/* General */
+body {
+  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  font-size: 12pt;
+  background-color: #222;
+  color: #bbc;
+  margin-left: 5px;
+  margin-right: 5px;
+}
+
+input, select {
+  background-color: #222;
+  color: #bbc;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  color: #bbc;
+}
+
+pre {
+  color: #bbc;
+}
+
+.hhmiblue {
+  color: #028d96;
+}
+
+.hhmigreen1 {
+  color: #00a450;
+}
+
+.hhmigreen2 {
+  color: #51b447;
+}
+
+.hhmigreen3 {
+  color: #8ac242;
+}
+
+/* Input */
+input:focus { background: #222; }
+input:hover { background: #333; }
+
+/* Links */
+a:link, a:visited { color: #6883c0; }
+
+a:hover, a:active {
+  color: #ccc;
+  background: #336;
+}
+
+/* Info link */
+.infolink:before
+{
+    content: '?';
+    display: inline-block;
+    font-family: sans-serif;
+    font-weight: bold;
+    text-align: center;
+    width: 20px;
+    height: 20px;
+    font-size: 11pt;
+    line-height: 2.4ex;
+    border-radius: 15px;
+    margin-right: 4px;
+    padding: 1px;
+    color: blue;
+    background: white;
+    border: 1px solid blue;
+    text-decoration: none;
+}
+
+.infolink:hover:before
+{
+    color: white;
+    background: blue;
+    border-color: white;
+    text-decoration: none;
+}
