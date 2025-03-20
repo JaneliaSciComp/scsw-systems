@@ -4,14 +4,16 @@
     https://wikis.janelia.org/display/ScientificComputing/SCSW+Servers
 '''
 
-__version__ = "1.1.0"
+__version__ = "2.0.0"
 
-from datetime import datetime, timedelta
+from collections import namedtuple
+from datetime import datetime, timedelta, timezone
 import inspect
 from json import JSONEncoder, loads
 import os
 import platform
 import re
+from socket import socket
 import subprocess
 import sys
 from time import time
@@ -22,6 +24,8 @@ from distributed.utils import TimeoutError as DaskTimeoutError
 from flask import (Flask, make_response, render_template, request, jsonify)
 from flask_cors import CORS
 from flask_swagger import swagger
+import idna
+from OpenSSL import SSL
 import requests
 
 # pylint: disable=broad-exception-caught,broad-exception-raised
@@ -35,6 +39,7 @@ OPSTART = datetime.strptime('2024-05-16','%Y-%m-%d')
 # General
 WIKI_URL = "https://wikis.janelia.org"
 SCICOMP = f"{WIKI_URL}/display/ScientificComputing"
+HostInfo = namedtuple(field_names='cert hostname peername', typename='HostInfo')
 
 # ******************************************************************************
 # * Classes                                                                    *
@@ -225,6 +230,8 @@ def find_servers():
         for row in table.find_all('tr')[1:]:
             row_data = [td.get_text(strip=True) for td in row.find_all('td')]
             if any(row_data):
+                if 'Template' in row_data[0]:
+                    continue
                 short = re.sub(r".*Server - ", "", row_data[0])
                 if not row_data[4] or 'retired' in row_data[1].lower() \
                     or 'retired' in row_data[6].lower():
@@ -245,9 +252,41 @@ def find_servers():
                                  "canonical": row_data[5],
                                  "aliases": row_data[6],
                                  "suffix": row_data[0].replace(" ", "+"),
-                                 "type": stype}
+                                 "type": stype,
+                                 "cert": row_data[5] if row_data[7] else None}
     print(f"Found {cnt} servers")
     return server, retired
+
+
+def get_certificate(hostname, port=443):
+    """
+    Retrieve the certificate from the given host and port.
+    Args:
+        host (str): The hostname to connect to.
+        port (int): The port to connect to.
+    Returns:
+        HostInfo: An object containing the certificate and other host information.
+    """
+    hostname_idna = idna.encode(hostname)
+    sock = socket()
+    try:
+        sock.connect((hostname, port))
+    except Exception as err:
+        print(err)
+        return HostInfo(cert=None, peername=None, hostname=hostname)
+    peername = sock.getpeername()
+    ctx = SSL.Context(SSL.SSLv23_METHOD) # most compatible
+    ctx.check_hostname = False
+    ctx.verify_mode = SSL.VERIFY_NONE
+    sock_ssl = SSL.Connection(ctx, sock)
+    sock_ssl.set_connect_state()
+    sock_ssl.set_tlsext_host_name(hostname_idna)
+    sock_ssl.do_handshake()
+    cert = sock_ssl.get_peer_certificate()
+    crypto_cert = cert.to_cryptography()
+    sock_ssl.close()
+    sock.close()
+    return HostInfo(cert=crypto_cert, peername=peername, hostname=hostname)
 
 
 def get_nutanix():
@@ -351,7 +390,22 @@ def multiping(details):
         for host in details['aliases'].split(','):
             if not ping(host) and not http_reachable(host):
                 bad_hosts.append(host)
-    return ', '.join(bad_hosts) if bad_hosts else False
+    expiry = 0
+    if details['cert']:
+        hostinfo = get_certificate(details['cert'])
+        if not hostinfo or not hostinfo.cert:
+            print(f"Could not get cert for {details['cert']}")
+            expiry = -2
+        else:
+            tfmt = "%Y-%m-%d %H:%M:%S"
+            expires = hostinfo.cert.not_valid_after_utc.strftime(tfmt)
+            if expires <= datetime.now(timezone.utc).strftime(tfmt):
+                expiry = -1
+            else:
+                dtime = hostinfo.cert.not_valid_after_utc - datetime.now(timezone.utc)
+                expiry = dtime.days
+    retlist = [', '.join(bad_hosts) if bad_hosts else False, expiry]
+    return retlist
 
 
 def ping_servers(servers):
@@ -375,10 +429,9 @@ def ping_servers(servers):
         for server_name, details, future in futures:
             try:
                 is_not_reachable = future.result(timeout=app.config["TIMEOUT"])
-                status = "<span class='text-success'>Reachable</span>" if not is_not_reachable \
-                         else f"<span class='text-danger'>{is_not_reachable}</span>"
+                status = "Reachable" if not is_not_reachable else is_not_reachable
             except DaskTimeoutError:
-                status = "<span class='text-warning'>TIMEOUT</span>"
+                status = ["<span class='text-warning'>TIMEOUT</span>", 0]
             results[server_name] = {"description": details['description'],
                                     "ip": details['ip'],
                                     "canonical": details['canonical'],
@@ -556,16 +609,45 @@ def show_home():
         html += f"<h3>{stype} servers</h3>"
         html += f"<table id='{stype}' class='tablesorter standard'><thead><tr><th>Server</th>" \
                 + "<th>Description</th><th>IP</th><th>Canonical</th>" \
-                + "<th>Aliases</th><th>Status</th></tr></thead><tbody>"
+                + "<th>Aliases</th><th>Status</th><th>SSL expires</th></tr></thead><tbody>"
         for key, val in results.items():
             if val['type'] != stype:
                 continue
             url = f"{SCICOMP}/{val['suffix']}"
             val['aliases'] = " ".join(val['aliases'].split(',')) if val['aliases'] else ""
+            if len(val['status']) == 2:
+                status, cert = val['status']
+            else:
+                status = val['status']
+                cert = ""
+            if not cert:
+                cert = ""
+            else:
+                if cert == -2:
+                    cert = "Could not get cert"
+                    color = 'red'
+                elif cert == -1:
+                    cert = "Expired"
+                    color = 'red'
+                elif cert < 30:
+                    color = 'magenta'
+                elif cert < 45:
+                    color = 'orange'
+                elif cert < 60:
+                    color = 'yellow'
+                elif cert < 90:
+                    color = 'cyan'
+                else:
+                    color = 'green'
+                if isinstance(cert, int):
+                    cert = f"{cert} day{'s' if cert != 1 else ''}"
+                cert = f"<span style='color: {color}'>{cert}</span>"
+            status = "<span class='text-success'>Reachable</span>" if not status \
+                     else f"<span class='text-danger'>{status}</span>"
             html += f"<tr><td><a href='{url}' target='_blank'>{key}</a></td>" \
                     + f"<td width='300'>{val['description']}</td><td>{val['ip']}</td>" \
                     + f"<td>{val['canonical']}</td><td width='200'>{val['aliases']}</td>" \
-                    + f"<td>{val['status']}</td></tr>"
+                    + f"<td>{status}</td><td style='text-align:center'>{cert}</td></tr>"
         html += "</tbody></table>"
     if retired:
         html += show_retired(retired)

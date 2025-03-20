@@ -6,3 +6,4 @@ Flask-Cors
 flask-swagger
 pyOpenSSL
 gunicorn==22.0.0
+idna
