@@ -4,7 +4,7 @@
     https://wikis.janelia.org/display/ScientificComputing/SCSW+Servers
 '''
 
-__version__ = "2.0.0"
+__version__ = "2.1.0"
 
 from collections import namedtuple
 from datetime import datetime, timedelta, timezone
@@ -206,7 +206,6 @@ def find_servers():
           None
         Returns:
           server: dictionary of server details
-          retired: dictionary of retired server details
     '''
     token = os.environ.get('CONFLUENCE_API_TOKEN') \
         if os.environ.get('CONFLUENCE_API_TOKEN') else None
@@ -220,7 +219,6 @@ def find_servers():
     soup = BeautifulSoup(content['body']['view']['value'], 'html.parser')
     tables = soup.find_all('table')
     server = {}
-    retired = {}
     divisions = ['Physical', 'Virtual']
     cnt = 0
     for i, table in enumerate(tables, 1):
@@ -233,29 +231,29 @@ def find_servers():
                 if 'Template' in row_data[0]:
                     continue
                 short = re.sub(r".*Server - ", "", row_data[0])
+                if short in server:
+                    raise Exception(f"Duplicate server: {row_data[0]}")
+                cnt += 1
                 if not row_data[4] or 'retired' in row_data[1].lower() \
                     or 'retired' in row_data[6].lower():
-                    retired[short] = {"title": short,
+                    server[short] = {"title": short,
                                       "description": row_data[1],
                                       "ip": row_data[4],
                                       "canonical": row_data[5],
                                       "aliases": row_data[6],
                                       "suffix": row_data[0].replace(" ", "+"),
-                                      "type": stype}
-                    continue
-                if short in server:
-                    raise Exception(f"Duplicate server: {row_data[0]}")
-                cnt += 1
-                server[short] = {"title": short,
-                                 "description": row_data[1],
-                                 "ip": row_data[4],
-                                 "canonical": row_data[5],
-                                 "aliases": row_data[6],
-                                 "suffix": row_data[0].replace(" ", "+"),
-                                 "type": stype,
-                                 "cert": row_data[5] if row_data[7] else None}
+                                      "type": 'Retired'}
+                else:
+                    server[short] = {"title": short,
+                                     "description": row_data[1],
+                                     "ip": row_data[4],
+                                     "canonical": row_data[5],
+                                     "aliases": row_data[6],
+                                     "suffix": row_data[0].replace(" ", "+"),
+                                     "type": stype,
+                                     "cert": row_data[5] if row_data[7] else None}
     print(f"Found {cnt} servers")
-    return server, retired
+    return server
 
 
 def get_certificate(hostname, port=443):
@@ -314,6 +312,8 @@ def get_nutanix():
             vms[name] = {"alias": alias,
                          "cpus": vm['numVCpus'],
                          "memory": vm['memoryCapacityInBytes'],
+                         "disk": vm['diskCapacityInBytes'],
+                         "power": vm['powerState'],
                          "ip": vm['ipAddresses'][0] if vm['ipAddresses'] else 'N/A'}
     else:
         raise Exception(f"Failed to retrieve Nutanix VMs: {response.status_code}")
@@ -382,16 +382,17 @@ def multiping(details):
           False if host responds to all ping requests, otherwise list of bad hosts
     '''
     bad_hosts = []
-    if not ping(details['canonical']) and not http_reachable(details['canonical']):
+    if details['canonical'] and not ping(details['canonical']) \
+       and not http_reachable(details['canonical']):
         bad_hosts.append(details['canonical'])
     if details['ip'] and not ping(details['ip']) and not http_reachable(details['ip']):
         bad_hosts.append(details['ip'])
     if details['aliases']:
         for host in details['aliases'].split(','):
-            if not ping(host) and not http_reachable(host):
+            if host != 'retired' and not ping(host) and not http_reachable(host):
                 bad_hosts.append(host)
     expiry = 0
-    if details['cert']:
+    if 'cert' in details and details['cert']:
         hostinfo = get_certificate(details['cert'])
         if not hostinfo or not hostinfo.cert:
             print(f"Could not get cert for {details['cert']}")
@@ -441,24 +442,6 @@ def ping_servers(servers):
                                     "status": status}
         client.close()
     return results
-
-
-def show_retired(retired):
-    ''' Show retired servers
-        Keyword arguments:
-          retired: dictionary of retired server details
-    '''
-    rhtml = "<br><h3>Retired servers</h3>"
-    rhtml += "<table id='retired' class='tablesorter standard'><thead><tr><th>Server</th>" \
-             + "<th>Description</th><th>IP</th><th>Canonical</th>" \
-             + "<th>Aliases</th></tr></thead><tbody>"
-    for key, val in retired.items():
-        url = f"{SCICOMP}/{val['suffix']}"
-        rhtml += f"<tr><td><a href='{url}' target='_blank'>{key}</a></td>" \
-                 + f"<td>{val['description']}</td><td>{val['ip']}</td>" \
-        + f"<td>{val['canonical']}</td><td width='200'>{val['aliases']}</td></tr>"
-    rhtml += "</tbody></table>"
-    return rhtml
 
 # ******************************************************************************
 # * Navigation utility functions                                               *
@@ -600,16 +583,19 @@ def show_home():
     ''' Home
     '''
     try:
-        servers, retired = find_servers()
+        servers = find_servers()
     except Exception as err:
         return inspect_error(err, 'Could not find servers')
     results = ping_servers(servers)
     html = ""
-    for stype in ['Physical', 'Virtual']:
+    for stype in ['Physical', 'Virtual', 'Retired']:
         html += f"<h3>{stype} servers</h3>"
         html += f"<table id='{stype}' class='tablesorter standard'><thead><tr><th>Server</th>" \
                 + "<th>Description</th><th>IP</th><th>Canonical</th>" \
-                + "<th>Aliases</th><th>Status</th><th>SSL expires</th></tr></thead><tbody>"
+                + "<th>Aliases</th><th>Status</th>"
+        if stype != 'Retired':
+            html += "<th>SSL expires</th>"
+        html += "</tr></thead><tbody>"
         for key, val in results.items():
             if val['type'] != stype:
                 continue
@@ -638,19 +624,22 @@ def show_home():
                 elif cert < 90:
                     color = 'cyan'
                 else:
-                    color = 'green'
+                    color = 'lime'
                 if isinstance(cert, int):
                     cert = f"{cert} day{'s' if cert != 1 else ''}"
                 cert = f"<span style='color: {color}'>{cert}</span>"
             status = "<span class='text-success'>Reachable</span>" if not status \
                      else f"<span class='text-danger'>{status}</span>"
+            if not val['description']:
+                val['description'] = "<span style='color:red'>Need to set description</span>"
             html += f"<tr><td><a href='{url}' target='_blank'>{key}</a></td>" \
                     + f"<td width='300'>{val['description']}</td><td>{val['ip']}</td>" \
                     + f"<td>{val['canonical']}</td><td width='200'>{val['aliases']}</td>" \
-                    + f"<td>{status}</td><td style='text-align:center'>{cert}</td></tr>"
+                    + f"<td>{status}</td>"
+            if stype != 'Retired':
+                html += f"<td style='text-align:center'>{cert}</td>"
+            html += "</tr>"
         html += "</tbody></table>"
-    if retired:
-        html += show_retired(retired)
     return make_response(render_template('home.html', urlroot=request.url_root,
                                          title="SCSW Servers", html=html,
                                          navbar=generate_navbar('Home'),
@@ -662,7 +651,7 @@ def show_nutanix():
     ''' Show Nutanix VMs
     '''
     try:
-        servers, _ = find_servers()
+        servers = find_servers()
     except Exception as err:
         return inspect_error(err, 'Could not find servers')
     try:
@@ -674,18 +663,25 @@ def show_nutanix():
            + "SCSW Servers wiki page</a>."
     html += "<table id='nutanix' class='tablesorter standard'><thead><tr><th>Server</th>" \
             + "<th>Description</th><th>Alias</th><th>IP</th><th>CPUs</th>" \
-            + "<th>Memory</th></tr></thead><tbody>"
+            + "<th>Memory</th><th>Power</th></tr></thead><tbody>"
     for key, val in servers.items():
         name = val['canonical'].split('.')[0]
         if not name.startswith('vm') or name not in vms:
             continue
-        vms[name]['description'] = val['description'] if name in vms else ''
+        if name in vms:
+            vms[name]['description'] = val['description'] if val['description'] \
+                                       else "<span style='color:red'>Need to set description</span>"
+        else:
+            vms[name]['description'] = ''
     for key, val in sorted(vms.items()):
         if 'description' not in val:
             val['description'] = ''
+        color = 'lime' if val['power'] == 'on' else 'red'
         html += f"<tr><td>{key}</td><td>{val['description']}</td><td>{val['alias']}</td>" \
                 + f"<td>{val['ip']}</td><td style='text-align:center'>{val['cpus']}</td>" \
-                + f"<td style='text-align:center'>{humansize(val['memory'], places=0)}</td></tr>"
+                + f"<td style='text-align:center'>{humansize(val['memory'], places=0)}</td>" \
+                + f"<td style='text-align:center'><span style='color: {color}'>" \
+                + f"{val['power']}</span></td></tr>"
     html += "</tbody></table>"
     return make_response(render_template('home.html', urlroot=request.url_root,
                                          title="Nutanix VMs", html=html,
